@@ -7,12 +7,13 @@ from langchain_huggingface import HuggingFaceEmbeddings
 import time
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+import os
 
 def create_session():
     session = requests.Session()
     retry = Retry(
-        total=5,  # Increased retries
-        backoff_factor=2,  # Increased backoff
+        total=5,
+        backoff_factor=2,
         status_forcelist=[500, 502, 503, 504, 599]
     )
     adapter = HTTPAdapter(max_retries=retry)
@@ -88,6 +89,10 @@ def scrape_url(url, delay=2):
         return None
 
 def create_vector_store(scraped_data):
+    # Ensure the index directory exists
+    index_directory = "./faiss_index"
+    os.makedirs(index_directory, exist_ok=True)
+
     documents = []
     for page in scraped_data:
         content = page["content"]
@@ -102,7 +107,8 @@ def create_vector_store(scraped_data):
     )
     
     vector_store = FAISS.from_texts(documents, embeddings)
-    vector_store.save_local("faiss_index")
+    vector_store.save_local(index_directory)
+    print(f"Vector store created in {index_directory}/")
     return vector_store
 
 def main():
@@ -138,14 +144,17 @@ def main():
         print("Error: No data was successfully scraped!")
         return
     
+    # Ensure the data directory exists
+    os.makedirs("./data", exist_ok=True)
+
     # Save raw data
-    with open('utd_data.json', 'w', encoding='utf-8') as f:
+    data_file = './data/utd_data.json'
+    with open(data_file, 'w', encoding='utf-8') as f:
         json.dump(scraped_data, f, indent=2, ensure_ascii=False)
-    print(f"\nScraped data saved to utd_data.json")
+    print(f"\nScraped data saved to {data_file}")
     
     # Create vector store
     create_vector_store(scraped_data)
-    print("Vector store created in faiss_index/")
 
 if __name__ == "__main__":
-    main() 
+    main()
